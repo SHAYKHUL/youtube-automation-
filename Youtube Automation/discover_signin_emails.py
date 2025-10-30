@@ -238,29 +238,30 @@ class AuthenticatedEmailDiscovery:
                         print("Checking for reCAPTCHA...")
                         # Wait for reCAPTCHA iframe
                         time.sleep(2)
-                        
                         # Switch to reCAPTCHA iframe
                         captcha_iframe = self.driver.find_element(By.CSS_SELECTOR, "iframe[src*='recaptcha']")
                         self.driver.switch_to.frame(captcha_iframe)
-                        
                         # Click the checkbox
                         print("Clicking reCAPTCHA checkbox...")
-                        checkbox = self.wait.until(EC.element_to_be_clickable(
-                            (By.CSS_SELECTOR, ".recaptcha-checkbox-border")))
+                        checkbox = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".recaptcha-checkbox-border")))
                         checkbox.click()
-                        
-                        # Switch back to main content immediately to check for challenge
-                        self.driver.switch_to.default_content()
-                        
-                        # Wait and check if challenge modal appeared
-                        time.sleep(2)
-                        
-                        # Check for challenge iframe (bframe = challenge with images)
+                        # Wait for the checkmark to appear (CAPTCHA solved)
                         try:
-                            challenge_iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src*='bframe']")
-                            if challenge_iframes and len(challenge_iframes) > 0:
-                                # Check if the challenge iframe is visible
-                                if challenge_iframes[0].is_displayed():
+                            self.wait.until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, ".recaptcha-checkbox-checked"))
+                            )
+                            print("✅ reCAPTCHA checkmark detected! CAPTCHA solved.")
+                            captcha_solved = True
+                        except TimeoutException:
+                            print("⚠️  reCAPTCHA checkmark not detected. Manual solve may be required.")
+                            captcha_solved = False
+                        # Switch back to main content
+                        self.driver.switch_to.default_content()
+                        # If not solved, check for challenge iframe (bframe = challenge with images)
+                        if not captcha_solved:
+                            try:
+                                challenge_iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src*='bframe']")
+                                if challenge_iframes and len(challenge_iframes) > 0 and challenge_iframes[0].is_displayed():
                                     print("⚠️  reCAPTCHA IMAGE CHALLENGE detected!")
                                     print("You need to solve the image challenge manually")
                                     if self.manual_debug:
@@ -269,13 +270,9 @@ class AuthenticatedEmailDiscovery:
                                 else:
                                     print("✅ reCAPTCHA auto-solved (no visible challenge)!")
                                     captcha_solved = True
-                            else:
-                                print("✅ reCAPTCHA auto-solved (no challenge modal)!")
+                            except:
+                                print("✅ reCAPTCHA auto-solved!")
                                 captcha_solved = True
-                        except:
-                            # No challenge frame found, likely auto-solved
-                            print("✅ reCAPTCHA auto-solved!")
-                            captcha_solved = True
                         
                     except Exception as e:
                         print(f"CAPTCHA handling: {e}")
